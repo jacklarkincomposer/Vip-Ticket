@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#060605">
+  <title>Ticket Scanner</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <style>
+    /* ── TOKENS ─────────────────────────────── */
+    :root {
+      --green:        #16a34a;
+      --green-bright: #22c55e;
+      --green-dim:    rgba(34, 197, 94, 0.12);
+      --green-glow:   rgba(34, 197, 94, 0.06);
+      --bg:           #060605;
+      --surface:      #0f0f0e;
+      --border:       rgba(255,255,255,0.07);
+      --text:         #e8e6e1;
+      --text-muted:   #6b6963;
+      --text-faint:   #3a3936;
+      --sans:         'Inter', sans-serif;
+      --mono:         'JetBrains Mono', monospace;
+      --ease:         cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* ── BASE ───────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-font-smoothing: antialiased; text-size-adjust: none; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Ambient green radial glow behind everything */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 70% 50% at 50% 35%, rgba(34,197,94,0.07) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── LAYOUT ─────────────────────────────── */
+    .card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+    }
+
+    /* ── CHECKMARK ──────────────────────────── */
+    .check-wrap {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 28px;
+      position: relative;
+    }
+
+    /* Outer pulse ring */
+    .pulse {
+      position: absolute;
+      inset: -16px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(34,197,94,0.2);
+      opacity: 0;
+      animation: pulse-in 0.4s var(--ease) 1.4s forwards,
+                 pulse-loop 2.8s ease-in-out 1.8s infinite;
+    }
+    .pulse-2 {
+      position: absolute;
+      inset: -28px;
+      border-radius: 50%;
+      border: 1px solid rgba(34,197,94,0.1);
+      opacity: 0;
+      animation: pulse-in 0.4s var(--ease) 1.55s forwards,
+                 pulse-loop 2.8s ease-in-out 1.95s infinite;
+    }
+
+    @keyframes pulse-in   { to { opacity: 1; } }
+    @keyframes pulse-loop {
+      0%, 100% { transform: scale(1);    opacity: 0.7; }
+      50%       { transform: scale(1.06); opacity: 0.2; }
+    }
+
+    /* SVG */
+    .check-svg { width: 100px; height: 100px; display: block; }
+    .c-fill { fill: var(--green-dim); }
+    .c-ring {
+      fill: none; stroke: var(--green-bright); stroke-width: 2.5; stroke-linecap: round;
+      stroke-dasharray: 276; stroke-dashoffset: 276;
+      transform-origin: 50px 50px; transform: rotate(-90deg);
+      animation: draw-ring 0.7s var(--ease) 0.25s forwards;
+    }
+    .c-tick {
+      fill: none; stroke: var(--green-bright); stroke-width: 4;
+      stroke-linecap: round; stroke-linejoin: round;
+      stroke-dasharray: 56; stroke-dashoffset: 56;
+      animation: draw-tick 0.38s var(--ease) 0.9s forwards;
+    }
+    @keyframes draw-ring { to { stroke-dashoffset: 0; } }
+    @keyframes draw-tick { to { stroke-dashoffset: 0; } }
+
+    /* ── TEXT STAGGER ───────────────────────── */
+    [data-a] { opacity: 0; transform: translateY(8px); }
+    [data-a="0"] { animation: rise 0.5s var(--ease) 1.15s forwards; }
+    [data-a="1"] { animation: rise 0.5s var(--ease) 1.30s forwards; }
+    [data-a="2"] { animation: rise 0.5s var(--ease) 1.45s forwards; }
+    [data-a="3"] { animation: rise 0.5s var(--ease) 1.60s forwards; }
+    [data-a="4"] { animation: rise 0.5s var(--ease) 1.75s forwards; }
+    [data-a="5"] { animation: rise 0.5s var(--ease) 1.90s forwards; }
+    @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+    /* ── TYPE ───────────────────────────────── */
+    .status-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+    }
+
+    .accepted-word {
+      font-size: clamp(2.2rem, 8vw, 3rem);
+      font-weight: 800;
+      color: var(--green-bright);
+      letter-spacing: -0.01em;
+      line-height: 1;
+    }
+
+    /* ── DIVIDER ────────────────────────────── */
+    .divider {
+      width: 100%; height: 1px;
+      background: var(--border);
+      margin: 24px 0;
+      opacity: 0;
+      animation: rise 0.4s var(--ease) 1.45s forwards;
+    }
+
+    /* ── DETAIL CARD ─────────────────────────── */
+    .detail-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      text-align: left;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .detail-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .detail-row:first-child { padding-top: 0; }
+
+    .d-label { font-size: 11px; font-weight: 500; color: var(--text-muted); letter-spacing: 0.04em; flex-shrink: 0; }
+    .d-value { font-size: 13px; font-weight: 600; color: var(--text); text-align: right; }
+    .d-value.mono { font-family: var(--mono); font-size: 12px; color: var(--green-bright); }
+
+    /* ── TIMESTAMP ──────────────────────────── */
+    .timestamp {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-faint);
+      margin-top: 18px;
+      letter-spacing: 0.03em;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
+      [data-a] { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+<main class="card" role="main">
+
+  <!-- Checkmark -->
+  <div class="check-wrap" aria-hidden="true">
+    <div class="pulse"></div>
+    <div class="pulse-2"></div>
+    <svg class="check-svg" viewBox="0 0 100 100">
+      <circle class="c-fill" cx="50" cy="50" r="48"/>
+      <circle class="c-ring" cx="50" cy="50" r="44"/>
+      <path   class="c-tick" d="M28 50 L42 64 L72 34"/>
+    </svg>
+  </div>
+
+  <!-- Status text -->
+  <p class="status-label" data-a="0" aria-label="Status">Entry Status</p>
+  <h1 class="accepted-word" data-a="1">Accepted</h1>
+
+  <div class="divider" aria-hidden="true"></div>
+
+  <!-- Ticket details card -->
+  <div class="detail-card" data-a="2" role="region" aria-label="Ticket details">
+    <div class="detail-row">
+      <span class="d-label">Holder</span>
+      <span class="d-value" id="d-holder"></span>
+    </div>
+    <div class="detail-row">
+      <span class="d-label">Event</span>
+      <span class="d-value" id="d-event"></span>
+    </div>
+    <div class="detail-row">
+      <span class="d-label">Date</span>
+      <span class="d-value" id="d-date"></span>
+    </div>
+    <div class="detail-row">
+      <span class="d-label">Venue</span>
+      <span class="d-value" id="d-venue"></span>
+    </div>
+    <div class="detail-row">
+      <span class="d-label">Ticket</span>
+      <span class="d-value mono" id="d-ref"></span>
+    </div>
+  </div>
+
+  <!-- Scan timestamp -->
+  <p class="timestamp" data-a="3" id="d-time" aria-live="polite"></p>
+
+</main>
+
+<script>
+  // ═══════════════════════════════════════
+  // ✏️  EDIT YOUR DETAILS HERE
+  // ═══════════════════════════════════════
+  const TICKET = {
+    holder: "Lily May Lawson",       // ← change to her name
+    event:  "A Special Evening",
+    date:   "Monday, 30th March· 7.30 PM",
+    venue:  "The Grand Theatre || Row A, seat 1 & 2",
+    ref:    "TKT-X7K2M9QP",
+  };
+  // ═══════════════════════════════════════
+
+  // Populate fields
+  document.getElementById('d-holder').textContent = TICKET.holder;
+  document.getElementById('d-event').textContent  = TICKET.event;
+  document.getElementById('d-date').textContent   = TICKET.date;
+  document.getElementById('d-venue').textContent  = TICKET.venue;
+  document.getElementById('d-ref').textContent    = TICKET.ref;
+
+  // Live scan timestamp
+  const now = new Date();
+  const ts  = now.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+            + ' · '
+            + now.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+  document.getElementById('d-time').textContent = 'Scanned ' + ts;
+
+  // Confetti — timed with the checkmark drawing
+  setTimeout(() => {
+    confetti({ particleCount: 110, spread: 65, origin: { y: 0.4 },
+               colors: ['#22c55e','#86efac','#ffffff','#4ade80','#bbf7d0'] });
+  }, 950);
+  setTimeout(() => {
+    confetti({ particleCount: 50, angle:  60, spread: 48, origin: { x: 0,   y: 0.5 }, colors: ['#22c55e','#86efac','#dcfce7'] });
+    confetti({ particleCount: 50, angle: 120, spread: 48, origin: { x: 1,   y: 0.5 }, colors: ['#22c55e','#86efac','#dcfce7'] });
+  }, 1400);
+</script>
+</body>
+</html>
